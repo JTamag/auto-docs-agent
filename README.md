@@ -36,24 +36,25 @@ This separation of concerns is what makes the system agentic rather than a singl
  
 ## Approaches Considered
  
-| Approach | Description | Trade-offs |
-| :--- | :--- | :--- |
-| **Direct prompting** | Feed PR description, diff, and comments directly to an LLM with a single well-crafted prompt. | Simple to build, but fragile when PRs have weak descriptions. |
-| **RAG / Context store** | Maintain a database of past features, decisions, and events; agent retrieves relevant context before generating new docs. | More robust, better long-term consistency, more infrastructure to build. |
-| **Multi-agent pipeline** | One agent analyzes the diff for technical/business implications; a second agent generates audience-specific docs from that analysis. | Cleaner separation of concerns, easier to debug and tune each stage independently. |
-| **Template-driven** | Different templates per change type (new feature, bugfix, refactor, breaking change) guide what the agent should extract and report. | Improves consistency, but requires maintaining a template library. |
+The simplest option is direct prompting: feed the PR description, diff, and comments into an LLM with one well-crafted prompt and get a doc back. It's the fastest to build, but also the most fragile, if the PR description is weak or missing, the output quality drops with it.
  
-**Proposed direction:** A multi-agent pipeline combined with a context store (RAG) and templates per change type. See *Proposed Architecture* below.
+A more robust option is to add a context store (RAG): a database of past features, decisions, and events that the agent queries before generating anything new. This makes the system more consistent over time since it isn't reasoning from a single PR in isolation, but it adds real infrastructure to build and maintain.
+ 
+Splitting the work into a multi-agent pipeline is worth considering on its own too: one agent analyzes the diff for technical and business implications, a second one generates the audience-specific docs from that analysis. This makes each stage easier to debug and tune independently, instead of one prompt trying to do everything at once.
+ 
+Finally, a template-driven approach, different templates per change type (new feature, bugfix, refactor, breaking change), would guide what the agent extracts and reports. This improves consistency across outputs, but means maintaining a template library over time.
+ 
+Proposed direction: combine the multi-agent pipeline with a context store, and use templates per change type. Laid out below in *Proposed Architecture*.
  
 ## Key Challenges
  
-*   **Inconsistent PR quality.** Not every PR has a clear description; the agent needs a strategy for low-context PRs.
-*   **Signal vs. noise in diffs.** Distinguishing business-logic-relevant changes from formatting or refactors.
-*   **Missing business context.** The reasoning behind a feature often lives outside the PR (issue tracker, chat, spec docs), not just in the code.
-*   **Audience separation.** The technical version shouldn't be vague, and the non-technical version shouldn't leak implementation jargon to Learners or LCs.
-*   **Accuracy and hallucination risk.** Incorrect documentation is worse than none; needs a review step, at least in the MVP.
-*   **Continuity over time.** For weekly or bi-weekly summaries, the agent needs to track what's already been documented.
-*   **Sensitive information.** Some PR content may not be appropriate for user-facing docs.
+*   Inconsistent PR quality - Not every PR has a clear description; the agent needs a strategy for low-context PRs.
+*   Signal vs. noise in diffs - Distinguishing business-logic-relevant changes from formatting or refactors.
+*   Missing business context - The reasoning behind a feature often lives outside the PR (issue tracker, chat, spec docs), not just in the code.
+*   Audience separation - The technical version shouldn't be vague, and the non-technical version shouldn't leak implementation jargon to Learners or LCs.
+*   Accuracy and hallucination risk - Incorrect documentation is worse than none; needs a review step, at least in the MVP.
+*   Continuity over time - For weekly or bi-weekly summaries, the agent needs to track what's already been documented.
+*   Sensitive information - Some PR content may not be appropriate for user-facing docs.
 ## Proposed Architecture
  
 ```text
@@ -104,8 +105,8 @@ Output: committed to /docs, wiki, or sent via email
 To be defined during MVP planning.
  
 ## License
- 
-Brave Generation Academy. All rights reserved. Internal use only. This project is developed as part of an internship and intended for use by Brave Generation Academy.
+
+To be defined.
  
 ## Author
  
