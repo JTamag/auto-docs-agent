@@ -4,9 +4,7 @@ An agentic pipeline that automatically generates developer and end-user document
  
 ## Overview
  
-This project explores building an agentic pipeline capable of automatically generating documentation from software development context, primarily GitHub Pull Requests.
- 
-The system produces two types of documentation from a single source of truth:
+Software teams create a lot of context when they build something: PR descriptions, diffs, comments. Most of it never becomes documentation, it just gets buried once the PR is merged. This project explores whether that context, primarily GitHub Pull Requests, can be turned into two types of documentation automatically:
  
 *   **Technical documentation**, for developers. Focuses on architecture, implementation details, technical decisions, and information relevant to maintaining the code.
 *   **Non-technical documentation**, for end users (Learners, Learning Coaches, Course Managers, etc.). Explains new features, changes, or improvements in plain, accessible language tailored to these specific personas.
@@ -18,12 +16,11 @@ This repository currently contains the investigation and proposed architecture, 
 1.  Survey possible approaches to generating documentation from PR context.
 2.  Identify key challenges.
 3.  Propose a system architecture.
-4.  Get feedback before moving to MVP implementation.
 **Next step:** Review this proposal with the team to finalize the architecture and define the exact scope of the MVP.
  
 ## Motivation
  
-Keeping documentation up to date is a recurring problem in software teams. It's manual, easy to skip, and often drifts out of sync with the actual code. This project investigates whether an agentic system can reliably close that gap by using PRs (and possibly other sources) as context, producing consistent, audience-appropriate documentation with minimal human effort.
+Keeping documentation up to date is a recurring problem in software teams. It's manual, easy to skip, and often drifts out of sync with the actual code. This project investigates whether an agentic system can reliably close that gap, producing consistent, audience-appropriate documentation with minimal human effort.
  
 ## Why an Agentic Pipeline
  
@@ -36,15 +33,11 @@ This separation of concerns is what makes the system agentic rather than a singl
  
 ## Approaches Considered
  
-The simplest option is direct prompting: feed the PR description, diff, and comments into an LLM with one well-crafted prompt and get a doc back. It's the fastest to build, but also the most fragile, if the PR description is weak or missing, the output quality drops with it.
+The simplest option would have been direct prompting: feed the PR description, diff, and comments into an LLM with one well-crafted prompt and get a doc back. It's the fastest to build, but also the most fragile, if the PR description is weak or missing, the output quality drops with it. This is what the multi-agent + context store approach above is meant to avoid.
  
-A more robust option is to add a context store (RAG): a database of past features, decisions, and events that the agent queries before generating anything new. This makes the system more consistent over time since it isn't reasoning from a single PR in isolation, but it adds real infrastructure to build and maintain.
+The context store and multi-agent split, described above, were chosen specifically to fix direct prompting's weak points: consistency over time, and the ability to debug and tune each stage independently instead of one prompt trying to do everything.
  
-Splitting the work into a multi-agent pipeline is worth considering on its own too: one agent analyzes the diff for technical and business implications, a second one generates the audience-specific docs from that analysis. This makes each stage easier to debug and tune independently, instead of one prompt trying to do everything at once.
- 
-Finally, a template-driven approach, different templates per change type (new feature, bugfix, refactor, breaking change), would guide what the agent extracts and reports. This improves consistency across outputs, but means maintaining a template library over time.
- 
-Proposed direction: combine the multi-agent pipeline with a context store, and use templates per change type. Laid out below in *Proposed Architecture*.
+One more option considered: a template-driven approach, where different templates per change type (new feature, bugfix, refactor, breaking change) guide what the agent extracts and reports. This could still be layered on top of the pipeline above, it's a refinement rather than a competing architecture, so it's included as part of the MVP scope rather than as a separate decision.
  
 ## Key Challenges
  
@@ -105,9 +98,9 @@ Output: committed to /docs, wiki, or sent via email
 To be defined during MVP planning.
  
 ## License
-
+ 
 To be defined.
  
 ## Author
  
-Joao. Internship project, Brave Generation Academy.
+JTamag - Internship project, Brave Generation Academy.
