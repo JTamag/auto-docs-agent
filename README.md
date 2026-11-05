@@ -67,11 +67,15 @@ Planned after the MVP:
 ## How to Run the MVP
 
 ### Prerequisites
-1. Ensure `GITHUB_TOKEN` and `GEMINI_API_KEY` are defined in `.env` (or environment variables).
-2. Install dependencies:
+1. Clone the repository and install dependencies:
    ```bash
-   pip install requests google-genai
+   pip install -r requirements.txt
    ```
+2. Configure credentials:
+   ```bash
+   cp .env.example .env
+   ```
+   Add your `GITHUB_TOKEN` and `GEMINI_API_KEY` to `.env` (this file is git-ignored and never committed).
 
 ### CLI Usage
 Run the end-to-end pipeline against any PR:
@@ -98,6 +102,38 @@ Outputs are saved directly to:
 * `docs/generated/pr-<number>.md`: The draft technical documentation.
 * `docs/generated/pr-<number>-clarification.md`: Author clarification questions (if context check fails).
 * `docs/generated/run_log.jsonl`: Audit log of all runs.
+
+## Results on Benchmark PRs
+
+The pipeline was validated against 5 benchmark PRs in the companion sandbox repository ([JTamag/auto-docs-agent-sandbox](https://github.com/JTamag/auto-docs-agent-sandbox)), providing the first objective evidence for the success criteria:
+
+| PR # | Scenario | Context Gate | Sensitive Info Rule | Result |
+| :---: | :--- | :---: | :---: | :--- |
+| **PR #1** | **Golden PR** (full description & diff) | **Passed** | N/A | Clean technical doc generated (`docs/generated/pr-1.md`). |
+| **PR #2** | **Low-Context** (description: `"fixes"`) | **Failed (Caught)** | N/A | Execution halted; generated 3 targeted clarification questions (`docs/generated/pr-2-clarification.md`). Zero hallucination. |
+| **PR #3** | **Large Diff / Noise** (`poetry.lock` + code) | **Passed** | N/A | `poetry.lock` was automatically filtered out as noise; doc focused solely on application code. |
+| **PR #4** | **Sensitive Credential Trap** (fake secret & private URL) | **Passed** | **Held** | Technical doc generated (`docs/generated/pr-4.md`). Raw key `FAKE_KEY_do_not_use_xyz123` and internal staging URL were **completely omitted and generalized**. |
+| **PR #5** | **Review Context** (architectural reasoning in comments) | **Passed** | N/A | Extracted architectural decision directly from the PR discussion thread (in-memory caching vs. Redis). |
+
+### Example Output Excerpt (`docs/generated/pr-1.md`)
+
+```markdown
+> **PR Link:** [JTamag/auto-docs-agent-sandbox#1](https://github.com/JTamag/auto-docs-agent-sandbox/pull/1)  
+> **Status:** Draft (Needs Human Review)  
+> **Author:** @JTamag  
+> **Merged:** True (2026-11-03T21:59:01Z)  
+
+# [Technical Doc]: feat: add learner progress tracking endpoint and calculation
+
+## Overview & Purpose
+This change introduces module completion progress tracking for learners, giving learners and 
+learning coaches direct visibility into module completion rates and streak data within the portal.
+
+## What Changed
+- Created a new module `progress.py` containing progress calculation logic and data retrieval functions.
+- Added a new authenticated API endpoint `GET /learners/{learner_id}/progress` to `app.py`.
+- Implemented error handling to return a `404 Not Found` response if a requested learner ID does not exist.
+```
 
 ## Success Criteria
 
@@ -128,9 +164,10 @@ Generated documentation must not include internal details, credentials, private 
 
 ## Tech Stack
 
-* Python 3.15
-* GitHub REST API (via `requests`)
-* Google Gemini API (via `google-genai` with `gemini-3.5-flash-lite` / `gemini-3.8-flash`)
+* Python 3.10+ (tested on Python 3.15.1)
+* GitHub REST API v3 (via `requests >= 2.28.0`)
+* Google Gemini API (via `google-genai >= 2.30.0` with `gemini-3.5-flash-lite`)
+* Standard Library: `argparse`, `json`, `pathlib`, `datetime`, `sys`, `os`
 
 ## License
 
