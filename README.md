@@ -2,7 +2,7 @@
 
 An agentic pipeline that generates developer and end-user documentation from GitHub Pull Request context. Internship project for Brave Generation Academy.
 
-Status: architecture agreed, MVP in development.
+Status: Functional MVP operational (ingestion, context gate, Gemini generation, output writer, and run logging implemented).
 
 ## Overview
 
@@ -15,31 +15,19 @@ This project explores whether a PR can be turned into useful documentation autom
 
 The first version only covers the technical documentation. End-user docs come later (see the roadmap).
 
-## MVP scope
+## MVP Scope
 
-The MVP is deliberately small. It should be the minimum that already delivers value:
+The MVP is deliberately small. It is the minimum that already delivers value:
 
 1.  Take a single merged PR.
-2.  Read its title, description, diff and comments.
-3.  Generate technical documentation.
-4.  Save it somewhere simple, first a folder in the repo, later possibly a draft PR.
-5.  Require human review before anything is published.
+2.  Read its title, description, diff and comments (`ingest.py`).
+3.  Check if context is sufficient; ask targeted questions if not (`context_check.py`).
+4.  Generate technical documentation while stripping sensitive details (`generate.py`).
+5.  Save it as a draft markdown file in `docs/generated/pr-<number>.md`.
+6.  Append an event record to `docs/generated/run_log.jsonl` to track success criteria.
+7.  Require human review before anything is published.
 
 If a PR does not contain enough information to document it properly, the agent asks for more context instead of filling the gaps with guesses.
-
-Everything else (end-user docs, the context store, weekly summaries, other context sources) is intentionally left out until this works end to end.
-
-## Approach
-
-The simplest way to do this is a single prompt: send the PR to an LLM and get a document back. It is the fastest to build, but it depends entirely on the quality of the PR. A thin description produces thin documentation.
-
-The target architecture avoids that by splitting the work into stages:
-
-*   An analysis stage reads the diff and surrounding context and works out what changed, technically and in terms of business logic.
-*   Separate generation stages write for each audience, so the developer version and the end-user version do not compromise each other.
-*   A context store keeps a history of past features and decisions, so a new PR is not analyzed in isolation.
-
-Templates per change type (new feature, bugfix, refactor, breaking change) can sit on top of this to keep outputs consistent. The MVP starts with the smallest useful slice of this and grows towards it, rather than building all of it up front.
 
 ## Architecture
 
@@ -49,17 +37,20 @@ MVP flow:
 GitHub PR (merged)
    |
    v
-Ingestion: title, description, diff, comments
+Ingestion (ingest.py): title, description, diff, comments (filters lockfile noise)
    |
    v
-Enough context to document?
-   |-- no  --> ask for more context
+Context Gate (context_check.py): Enough context to document?
+   |-- no  --> writes questions for the author to docs/generated/pr-<number>-clarification.md
+   |
+   v (yes)
+Technical Doc Generation (generate.py): Gemini API with strict sensitive info guardrails
    |
    v
-Technical documentation generation
+Draft Output (main.py): docs/generated/pr-<number>.md (marked as needing review)
    |
    v
-Draft output (folder in the repo, or draft PR)
+Run Log (main.py): docs/generated/run_log.jsonl (records context check pass & reviewer corrections)
    |
    v
 Human review --> publish
@@ -73,56 +64,73 @@ Planned after the MVP:
 *   Context store / audit log of features and events
 *   Weekly or bi-weekly summaries
 
-## Key challenges
+## How to Run the MVP
 
-PR quality varies a lot, and some PRs are little more than a title and a diff. The agent needs to recognize when there is not enough to work with and ask, instead of inventing documentation.
+### Prerequisites
+1. Ensure `GITHUB_TOKEN` and `GEMINI_API_KEY` are defined in `.env` (or environment variables).
+2. Install dependencies:
+   ```bash
+   pip install requests google-genai
+   ```
 
-Diffs also mix signal and noise. A formatting change and a business-logic change can look similar, and the documentation should only cover what matters.
+### CLI Usage
+Run the end-to-end pipeline against any PR:
 
-Part of the reasoning behind a feature often lives outside the PR, in issues, chat or specs. This is why issues and commit messages are the first extra sources to consider.
+```bash
+cd auto-docs-agent
 
-Writing for two audiences from one source is harder than it sounds: the developer version should not be vague, and the end-user version should not leak implementation details.
+# Run against PR #1 (Golden PR with complete description and diff)
+python main.py --pr 1
 
-Incorrect documentation is worse than none, which is why human review is part of the MVP and not an optional extra.
+# Run against PR #2 (Low-context PR - automatically triggers the Context Gate)
+python main.py --pr 2
 
-## Success criteria
+# Run against PR #4 (Sensitive credential trap - tests secret omission)
+python main.py --pr 4
+```
 
-The MVP will be judged on a small set of objective measures, evaluated on real PRs:
+To target a different repository:
+```bash
+python main.py --repo owner/repo-name --pr 12
+```
 
-*   Share of PRs where the generated documentation is considered useful after review
-*   Time saved compared to writing the documentation manually
-*   Number of corrections the reviewer has to make
+Outputs are saved directly to:
+* `docs/generated/pr-<number>.md`: The draft technical documentation.
+* `docs/generated/pr-<number>-clarification.md`: Author clarification questions (if context check fails).
+* `docs/generated/run_log.jsonl`: Audit log of all runs.
 
-Target values will be agreed once there is a first baseline.
+## Success Criteria
 
-## Handling sensitive information
+The MVP is judged on three objective measures, evaluated on real PRs:
 
-Generated documentation must not include internal details, credentials, private URLs or security-related decisions. The rule is applied in the prompt and checked again during human review, and it should be defined before the first real PR is processed, not added afterwards.
+*   **Usefulness Rate:** Share of PRs where the generated documentation is considered useful after review.
+*   **Time Saved:** Time saved compared to writing the documentation manually.
+*   **Correction Overhead:** Number and extent of corrections the reviewer has to make (tracked in `run_log.jsonl`).
+
+## Handling Sensitive Information
+
+Generated documentation must not include internal details, credentials, private URLs or security-related decisions. The rule is strictly enforced in the system prompt instructions and checked again during human review.
 
 ## Roadmap
 
 - [x] Research and architecture proposal
 - [x] MVP scope agreed with the team
-- [ ] Set up ingestion for a single merged PR
-- [ ] Technical documentation generation
-- [ ] Handling of low-context PRs
-- [ ] Sensitive information rule
-- [ ] Human review step and simple output format
-- [ ] Evaluate against the success criteria
-- [ ] End-user documentation
-- [ ] Context store
+- [x] Set up companion sandbox repository (`auto-docs-agent-sandbox`) with 5 benchmark PRs
+- [x] Set up ingestion for a single merged PR (`ingest.py`, noise filtering)
+- [x] Context Gate implementation (`context_check.py`, asks questions on sparse PRs)
+- [x] Technical documentation generation with sensitive info omission (`generate.py`)
+- [x] Human review step and simple output format (`docs/generated/`)
+- [x] Run logging for success criteria tracking (`run_log.jsonl`)
+- [ ] Pilot on real PRs from a live repo
+- [ ] End-user documentation generation
+- [ ] Context store / audit log of features and events
 - [ ] Weekly / bi-weekly summaries
 
-## Open questions
+## Tech Stack
 
-*   Which repository and sample PRs will be used for testing?
-*   Which LLM provider and API access will be used?
-*   Is a folder in the repo enough for the first output, or should it be a draft PR from the start?
-*   What counts as "useful" in the success criteria, and who judges it?
-
-## Tech stack
-
-Not decided yet.
+* Python 3.15
+* GitHub REST API (via `requests`)
+* Google Gemini API (via `google-genai` with `gemini-3.5-flash-lite` / `gemini-3.8-flash`)
 
 ## License
 
